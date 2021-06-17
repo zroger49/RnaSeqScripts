@@ -1,0 +1,130 @@
+###pre_process.py 
+
+Used for prepocessing all the RNA-seq data files used in this work 
+Requires that the NexteraPE-PE.fa and TruSeq3-PE.fa files are in the working directory
+
+Dependencies: 
+Python (version 3.5)
+FastQC (version 0.11.8)
+Trimmomatic (version 0.39)
+Pychopper (versions 2.5) #updated since thesis 
+
+##Notas:
+Nanopore data can not be compressed 
+Illumina data must be compressed
+Clean raw_data folders before running (removing the R2 files from experience 2) and renaming R3 files to R2
+
+
+###build_transcriptome.sh
+
+Dependencies:
+gffread (version 0.12.6) 
+Hisat2 (version 2.2.0)
+Strigtie (version 2.1.4)
+minimap2 (version 2.15-r905)
+Porticullis (Version: 1.2.0) 
+Mikado (version 2.1.1)
+samtools (version 1.11) 
+Trandecoder (version 5.5.0)
+Diamond (version 2.0.6) 
+
+Requires the processed reads, the genome assembly, the viridiplantea db file,  and the fused transcript list 
+
+
+Description: 
+	Align reads with hisat2 (short) and minimap2 (long), assemble with stringtie. Mikado first two steps (configure and prepare) are then run. 
+	Porticullis analysis, ORF calling and Blast homology are then ran and integrated with mikado serialise
+	Finally Mikado pick is used to pick the transcripts
+	
+	In addition, extract the reads not aligning to the genome and assembles with rnaSPADES
+
+###Stringtie2_treshold_values.py
+
+Build an histogram/plot of the number of reads (SR + Super reads) between reference genes that were merged in the stringtie assembly (used on per sample basis)
+
+Dependencies: 
+Python (version 3.5)
+	Pandas (version 1.0.3)
+	pysam (version 0.16.0.1)
+Stringtie (version 2.1.4)
+bedtools (version 2.30.0)
+samtools  (version 1.10)
+
+Notes: 
+Exons here are defined as the read feature without the splicing site (N operation in CIGAR string)
+for example a 150 bp read with a gap after 100bps has 2 exons: one from base 1 to 100 and another from base 101 to 150 of the read
+
+Works in 3 steps: 
+	1) Computes all gaps between fused transcripts (reference transcript in the same stringtie gene id) 
+	2) Searches in the bam file (used for transcriptome assembly) all the splicing sites in these gaps. Each gap might have contain several splicing sites, which are reported indenpendtly. 
+	Furthermore, reads with introns > 3000bps are discarded, as these are likely background noise.
+	3) Computes for every base in the gaps between fused reference transcripts the number of read "exons" that cover i
+
+This is ran by samples as stringtie works best if samples are reconstructed indenpendtly of one another. 
+
+Input: Alignment BAM file and the reference gff file (to build the transcriptome) 
+
+Ouput: Transcriptome (illumina_genome_gtf_guide.gtf).
+Dataset with the splicing sites in the gaps (feature names, Coord, number of occurences).  
+Reference transcript under the same gene id in the resulting transcriptome (fused_transcript_intervals.bed)
+Covereage of the gaps by read "exons" (exons_coverage.tsv)
+
+To consider: 
+#using os.system(). Not ideal, might want to change. Study how os.subprocess stdin works in simples examples 
+#python3 stringtie2_treshold_values.py -bam idio_1_sr_sort.bam -r cro_v2.gene_models.gff3 -t 10 -o idio_1
+
+
+
+###remove_multi_gene_reference.sh
+
+Dependencies: 
+rentrez R library (version 1.2.3)
+efetch (version 14.6) 
+Transdecoder (v5.5.0) 
+minimap2 (v 2.15-r905) 
+companion python scripts on this folder 
+
+Description: 
+	Use this script to find putative fusion genes in the reference transcripts. These need to be indentified and penalized in the MIKADO. Since their reading
+	frame look good, MIKADO does not recognize these genes as fusions 
+	
+	Use minimap with the query being CD97 transcripts + all the genes from GeneBank (downloaded w/ efetch) 
+	The query genes reading frames are predicted with Transdecoder, and only complete reading frame are kept (with > 400bp)
+	After alignment, another script takes a look at the paf output and identified fusion transcripts with the following rules: 
+		The same target sequence (reference transcript has 2+ query genes) both with >90 qcoverage and >80 identify, which intersect in less than 100bps in the target
+		The target genes has to be > 2500bps in size 
+		There can not be a query with over 70% coverage of the target reference genes 
+	
+###process_mikado_output.sh
+
+Dependencies: 
+
+Genome tools (version 1.6.1)
+Tabix (version: 0.2.5)
+gffreads (version 0.12.2) 
+N50 script (https://github.com/hcdenbakker/N50.sh/blob/master/N50.sh) 
+mikado (2.1.1) 
+gffcompare (version 0.11.6)
+
+Description: ouputs several files for the MIKADO output, inclunding a file with all the transcripts, with only the primary transcripts in addition to fasta files 
+
+
+###parse_annotation_files.py
+
+Dependencies: 
+	Python 3.7
+		goatools == 1.0.5
+
+Files required: 
+	Table with the manual annotation (no header) where the first collum in the name of the gene and the second the gene id 
+	pannzer output (pannzer annotation obtained by using the webserver with default parameters)
+	Interpro annotation
+	go.obo downloaded form the GO website 
+	g2t gene to transcript tsv (this is only needed to parse all the gene, including those with no annotation) 
+	file with the GO annotation of the alkaloid enzymes. The annotation was downloaded from uniprot and manually curated. 
+	
+Description: 
+	Takes the several annotation files and outputs a file whith a row per gene with all the information
+	
+Comand to Parse the files: 
+py scripts/parse_annotation_files.py -m manual_annotation_table.tsv -p pannzer_out.tsv -i interpro_out.tsv -go go.obo -g2t g2t.tsv -mgo alkaloid_enzymes_go_terms_manual.tsv
