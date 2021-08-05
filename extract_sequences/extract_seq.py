@@ -1,7 +1,7 @@
 # @Author: Rogerio Ribeiro
 # @E-mail: zroger499@gmail.com
 # @Date:   2021-03-12
-# @Description: Extract sequences from fasta files. Ouput is a fasta filw with the name of the list.fasta
+# @Description: Extract sequences from fasta files
 
 import argparse, csv
 from Bio import SeqIO
@@ -17,7 +17,7 @@ def extract(gene_list, fasta_file):
     fasta_results = []
     fasta = SeqIO.parse(fasta_file, "fasta")
     for sequence in fasta: 
-        gene_id = sequence.id.split(".")[0]
+        gene_id = sequence.id
         if gene_id in extract_gene_list: 
             fasta_results.append(sequence)
 
