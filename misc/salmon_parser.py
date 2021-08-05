@@ -1,8 +1,7 @@
 # @Author: Rogerio Ribeiro
 # @E-mail: zroger499@gmail.com
 # @Date:   2020-03-19
-# @Description: Replace non ATGCN nucleotides for n (this makes it compatible with dammit)
-
+# @Description: Parse the salmon_quant.log files and extract the aligned and unique mapped reads
 
 import argparse
 import os
